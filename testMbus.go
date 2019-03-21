@@ -13,7 +13,7 @@ import (
 var wg sync.WaitGroup
 
 // consumer id receives messages whose topic (as an integer) is divisible by id
-func consumer (id int, c <-chan mbus.PMsg) {
+func consumer (id int, c <-chan PMsg) {
 	for x := range c {
 		fmt.Printf("%03d got %s = %s\n", id, x.Topic, x.Msg)
 		wg.Done()
@@ -22,7 +22,7 @@ func consumer (id int, c <-chan mbus.PMsg) {
 }
 
 // publisher id generates n messages with random topics from 1 to 100
-func producer (id int, n int, mb *mbus.Mbus) {
+func producer (id int, n int, mb *Mbus) {
 	// publish 100 messages on random topics between 1 and 100
 	for i:= 1; i <= n; i++ {
 		n := rand.Intn(100) + 1
@@ -33,7 +33,7 @@ func producer (id int, n int, mb *mbus.Mbus) {
 				nm++
 			}
 		}
-		m := mbus.Msg{mbus.Topic(strconv.Itoa(n)), fmt.Sprintf("#%d from producer %d", i, id)}
+		m := Msg{Topic(strconv.Itoa(n)), fmt.Sprintf("#%d from producer %d", i, id)}
 		fmt.Printf("published %s = %s\n", m.Topic, m.Msg)
 		wg.Add(nm)
 		mb.Pub(m)
@@ -43,13 +43,13 @@ func producer (id int, n int, mb *mbus.Mbus) {
 
 func Test() {
 	rand.Seed(time.Now().UnixNano())
-	mb := mbus.NewMbus()
+	mb := NewMbus()
 	// generate 30 random consumers; consumer i subscribes to
 	// messages whose topic is an integer multiple of i <= 100
 	for i:= 1; i <= 30; i++ {
-		c := mb.Sub(mbus.Topic(strconv.Itoa(i)), mbus.Topic(strconv.Itoa(2*i)))
+		c := mb.Sub(Topic(strconv.Itoa(i)), Topic(strconv.Itoa(2*i)))
 		for j:= i*3; j <= 100; j += i {
-			mb.Add(c, mbus.Topic(strconv.Itoa(j)))
+			mb.Add(c, Topic(strconv.Itoa(j)))
 		}
 		if i == 12 {
 			fmt.Printf("consumer %d wants these %d topics:\n", i, mb.NumTopics(c))
