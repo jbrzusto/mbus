@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	"github.com/jbrzusto/mbus"
 )
 
 var wg sync.WaitGroup
