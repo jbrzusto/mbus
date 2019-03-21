@@ -1,4 +1,4 @@
-package main
+package mbus
 
 // simple test of the mbus package
 
@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	"./mbus"
+	"github.com/jbrzusto/mbus"
 )
 
 var wg sync.WaitGroup
@@ -42,7 +42,7 @@ func producer (id int, n int, mb *mbus.Mbus) {
 	}
 }
 
-func main() {
+func Test() {
 	rand.Seed(time.Now().UnixNano())
 	mb := mbus.NewMbus()
 	// generate 30 random consumers; consumer i subscribes to
