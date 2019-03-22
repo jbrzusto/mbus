@@ -50,7 +50,7 @@ type Subr struct {
 }
 
 // Get a subscriber's read-only message channel
-func (sub *Subr) Msgs() <- chan PMsg {
+func (sub *Subr) Msgs() <-chan PMsg {
 	return sub.mchn
 }
 
@@ -72,9 +72,9 @@ type Mbus struct {
 // constructor for a message bus
 func NewMbus() (mb Mbus) {
 	mb = Mbus{msgs: fifo.NewQueue(),
-		subs: make(map[*Subr]bool, 10),
-		wants: make(map[Topic]map[*Subr]bool),
-		wake: make(chan bool, 1),
+		subs:   make(map[*Subr]bool, 10),
+		wants:  make(map[Topic]map[*Subr]bool),
+		wake:   make(chan bool, 1),
 		closed: false}
 	// start the goroutine to distribute messages from the publish queue to the
 	// subscriber queues
@@ -105,9 +105,9 @@ func (mb *Mbus) Close() {
 
 // create a subscriber to one or more topics of interest
 //
-// As a special case, an empty Topic ("") is interpreted to mean
-// that *all* existing topics (i.e. those having at least one subscriber)
-// should be subscribed
+// As a special case, the Topic "*" is interpreted to mean
+// that *all* existing topics (i.e. those already having at least one subscriber)
+// should be subscribed to.
 func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
 	if mb.closed {
 		return nil
@@ -116,7 +116,7 @@ func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
 	defer mb.subsLock.Unlock()
 	sub = &Subr{msgs: fifo.NewQueue(), mchn: make(chan PMsg), wake: make(chan bool, 1), mbus: mb}
 	for _, t := range topic {
-		if t == "" {
+		if t == "*" {
 			mb.suball(sub)
 			break
 		}
@@ -132,8 +132,8 @@ func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
 // subscribe to additional topics
 //
 // Returns true on success, false otherwise.
-// As a special case, an empty Topic ("") is interpreted to mean
-// that *all* existing topics (i.e. those having at least one subscriber)
+// As a special case, the Topic "*" is interpreted to mean
+// that *all* existing topics (i.e. those already having at least one subscriber)
 // should be subscribed to.
 func (sub *Subr) Sub(topic ...Topic) bool {
 	mb := sub.mbus
@@ -143,7 +143,7 @@ func (sub *Subr) Sub(topic ...Topic) bool {
 	mb.subsLock.Lock()
 	defer mb.subsLock.Unlock()
 	for _, t := range topic {
-		if t == "" {
+		if t == "*" {
 			mb.suball(sub)
 			break
 		}
@@ -160,7 +160,7 @@ func (sub *Subr) Sub(topic ...Topic) bool {
 // to.  Note that a message channel can exist without any
 // subscriptions.  Reads from it will then always block.
 //
-// As a special case, an empty Topic ("") is interpreted to mean
+// As a special case, the Topic "*" is interpreted to mean
 // that *all* topics should be unsubscribed from.
 
 func (sub *Subr) Unsub(topic ...Topic) bool {
@@ -171,7 +171,7 @@ func (sub *Subr) Unsub(topic ...Topic) bool {
 	mb.subsLock.Lock()
 	defer mb.subsLock.Unlock()
 	for _, t := range topic {
-		if t == "" {
+		if t == "*" {
 			mb.unsuball(sub)
 			break
 		}
@@ -299,7 +299,7 @@ func (mb *Mbus) Pub(m Msg) bool {
 // exit, possibly after draining its queue
 func (mb *Mbus) bcaster() {
 	for {
-		if _, ok := <-mb.wake; ! ok {
+		if _, ok := <-mb.wake; !ok {
 			break
 		}
 		// whenever a receive from wake succeeds, it means
@@ -348,7 +348,7 @@ func (sub *Subr) viewer() {
 		// whenever a receive from wake succeeds, it means
 		// there might be messages in the queue
 		for {
-			msg := sub.msgs.Next();
+			msg := sub.msgs.Next()
 			if msg == nil {
 				break
 			}
