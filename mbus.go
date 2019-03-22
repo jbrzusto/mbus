@@ -49,6 +49,7 @@ type Subr struct {
 	mbus *Mbus       // message bus this subscriber is attached to
 }
 
+// Get a subscriber's read-only message channel
 func (sub *Subr) Msgs() <- chan PMsg {
 	return sub.mchn
 }

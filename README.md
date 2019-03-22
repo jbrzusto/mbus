@@ -23,7 +23,7 @@ from [github.com/foize/go.fifo](https://github.com/foize/go.fifo)
 - per subscriber: one goroutine, one fifo
 - per subscribed topic: one map
 - per *subscription* (i.e. `(subscriber, topic)`): one map entry
-- per published but unread message: one fifo node
+- per published but unread message: one fifo node containing a pointer to a message
 
 **Message Flow**:
 ```
