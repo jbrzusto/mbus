@@ -11,10 +11,13 @@ import (
 )
 
 var wg sync.WaitGroup
-
 // consumer id receives messages whose topic (as an integer) is divisible by id
 func consumer (id int, c <-chan PMsg) {
-	for x := range c {
+	for {
+		x, ok := <- c
+		if !ok {
+			break
+		}
 		fmt.Printf("%03d got %s = %s\n", id, x.Topic, x.Msg)
 		wg.Done()
 		time.Sleep(time.Duration(rand.Intn(500)) * time.Microsecond)
@@ -23,17 +26,17 @@ func consumer (id int, c <-chan PMsg) {
 
 // publisher id generates n messages with random topics from 1 to 100
 func producer (id int, n int, mb *Mbus) {
-	// publish 100 messages on random topics between 1 and 100
+	// publish n messages on random topics between 1 and 100
 	for i:= 1; i <= n; i++ {
-		n := rand.Intn(100) + 1
+		N := rand.Intn(100) + 1
 		// count the number of consumers who should receive the message
 		nm := 0
 		for j := 1; j <= 30; j++ {
-			if n % j == 0 {
+			if N % j == 0 {
 				nm++
 			}
 		}
-		m := Msg{Topic(strconv.Itoa(n)), fmt.Sprintf("#%d from producer %d", i, id)}
+		m := Msg{Topic(strconv.Itoa(N)), fmt.Sprintf("#%d from producer %d", i, id)}
 		fmt.Printf("published %s = %s\n", m.Topic, m.Msg)
 		wg.Add(nm)
 		mb.Pub(m)
@@ -47,17 +50,17 @@ func Test() {
 	// generate 30 random consumers; consumer i subscribes to
 	// messages whose topic is an integer multiple of i <= 100
 	for i:= 1; i <= 30; i++ {
-		c := mb.Sub(Topic(strconv.Itoa(i)), Topic(strconv.Itoa(2*i)))
+		c := mb.NewSubr(Topic(strconv.Itoa(i)), Topic(strconv.Itoa(2*i)))
 		for j:= i*3; j <= 100; j += i {
-			mb.Add(c, Topic(strconv.Itoa(j)))
+			c.Sub(Topic(strconv.Itoa(j)))
 		}
 		if i == 12 {
-			fmt.Printf("consumer %d wants these %d topics:\n", i, mb.NumTopics(c))
-			for _,t := range mb.Topics(c) {
+			fmt.Printf("consumer %d wants these %d topics:\n", i, c.NumTopics())
+			for _,t := range c.Topics() {
 				fmt.Printf("   %s\n", t)
 			}
 		}
-		go consumer(i, c)
+		go consumer(i, c.Msgs())
 	}
 	for i:= 1; i <= 30; i++ {
 		go producer(i, i, &mb)
