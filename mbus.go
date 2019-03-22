@@ -106,8 +106,10 @@ func (mb *Mbus) Close() {
 // create a subscriber to one or more topics of interest
 //
 // As a special case, the Topic "*" is interpreted to mean
-// that *all* existing topics (i.e. those already having at least one subscriber)
-// should be subscribed to.
+// that *all* messages should be received.  If a client
+// has subscribed to "*", then all messages are received
+// until the client unsubscribes from "*"; i.e. individual
+// Sub / Unsub calls have no effect.
 func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
 	if mb.closed {
 		return nil
@@ -132,9 +134,10 @@ func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
 // subscribe to additional topics
 //
 // Returns true on success, false otherwise.
+//
 // As a special case, the Topic "*" is interpreted to mean
-// that *all* existing topics (i.e. those already having at least one subscriber)
-// should be subscribed to.
+// that *all* topics should be subscribed to; i.e. all messages
+// should be received, even if they are for topics not yet known.
 func (sub *Subr) Sub(topic ...Topic) bool {
 	mb := sub.mbus
 	if mb.closed {
@@ -182,7 +185,7 @@ func (sub *Subr) Unsub(topic ...Topic) bool {
 
 // add a subscriber to a topic
 //
-// only used by internal callers who have
+// Only used by internal callers who have
 // locked mb.subsLock
 func (mb *Mbus) sub(topic Topic, sub *Subr) {
 	_, ok := mb.wants[topic]
@@ -192,19 +195,23 @@ func (mb *Mbus) sub(topic Topic, sub *Subr) {
 	mb.wants[topic][sub] = true
 }
 
-// add a subscriber to all existing topics
+// add a subscriber to the "*" topic so it will receive all messages.
 //
-// only used by internal callers who have
+// This also removes any non-* subscriptions for sub, to prevent
+// it from receiving duplicate messages.
+//
+// Only used by internal callers who have
 // locked mb.subsLock
 func (mb *Mbus) suball(sub *Subr) {
-	for _, x := range mb.wants {
-		x[sub] = true
+	for t, _ := range mb.wants {
+		mb.unsub(t, sub)
 	}
+	mb.sub("*", sub)
 }
 
-// remove a subscriber from a topic
+// remove a subscriber from a topic, which can be "*"
 //
-// only used by internal callers who have
+// Only used by internal callers who have
 // locked mb.subsLock
 func (mb *Mbus) unsub(topic Topic, sub *Subr) {
 	_, ok := mb.wants[topic]
@@ -217,7 +224,7 @@ func (mb *Mbus) unsub(topic Topic, sub *Subr) {
 	}
 }
 
-// remove a subscriber from all topics
+// remove a subscriber from all topics, including "*"
 //
 // only used by internal callers who have
 // locked mb.subsLock
@@ -315,18 +322,25 @@ func (mb *Mbus) bcaster() {
 			}
 			msg := m.(PMsg)
 			if w, ok := mb.wants[msg.Topic]; ok {
-				for sub, want := range w {
-					if want {
-						sub.msgs.Add(msg)
-						// ensure the wake channel contains an item
-						// to force the carrier to wake up
-						if len(sub.wake) == 0 {
-							// no race condition here because
-							// only a single bcaster goroutine
-							// runs this code, so this send
-							// always succeeds
-							sub.wake <- true
-						}
+				for sub, _ := range w {
+					sub.msgs.Add(msg)
+					// ensure the wake channel contains an item
+					// to force the carrier to wake up
+					if len(sub.wake) == 0 {
+						// no race condition here because
+						// only a single bcaster goroutine
+						// runs this code, so this send
+						// always succeeds
+						sub.wake <- true
+					}
+				}
+			}
+			// distribute message to any subscribers to "*", regardless of topic
+			if w, ok := mb.wants["*"]; ok {
+				for sub, _ := range w {
+					sub.msgs.Add(msg)
+					if len(sub.wake) == 0 {
+						sub.wake <- true
 					}
 				}
 			}
