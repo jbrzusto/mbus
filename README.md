@@ -21,8 +21,8 @@ from [github.com/foize/go.fifo](https://github.com/foize/go.fifo)
 **Resource use**:
 - per messagebus: one goroutine, one fifo
 - per subscriber: one goroutine, one fifo
-- per subscribed topic: one map
-- per *subscription* (i.e. `(subscriber, topic)`): one map entry
+- per subscribed topic: one map from subscriber pointers to bool
+- per *subscription* (i.e. `(subscriber, topic)`): one map entry (subscriber pointer)
 - per published but unread message: one fifo node containing a pointer to a message
 
 **Message Flow**:

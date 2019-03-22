@@ -104,6 +104,10 @@ func (mb *Mbus) Close() {
 }
 
 // create a subscriber to one or more topics of interest
+//
+// As a special case, an empty Topic ("") is interpreted to mean
+// that *all* existing topics (i.e. those having at least one subscriber)
+// should be subscribed
 func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
 	if mb.closed {
 		return nil
@@ -112,6 +116,10 @@ func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
 	defer mb.subsLock.Unlock()
 	sub = &Subr{msgs: fifo.NewQueue(), mchn: make(chan PMsg), wake: make(chan bool, 1), mbus: mb}
 	for _, t := range topic {
+		if t == "" {
+			mb.suball(sub)
+			break
+		}
 		mb.sub(t, sub)
 	}
 	mb.subs[sub] = true
@@ -124,6 +132,9 @@ func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
 // subscribe to additional topics
 //
 // Returns true on success, false otherwise.
+// As a special case, an empty Topic ("") is interpreted to mean
+// that *all* existing topics (i.e. those having at least one subscriber)
+// should be subscribed to.
 func (sub *Subr) Sub(topic ...Topic) bool {
 	mb := sub.mbus
 	if mb.closed {
@@ -132,6 +143,10 @@ func (sub *Subr) Sub(topic ...Topic) bool {
 	mb.subsLock.Lock()
 	defer mb.subsLock.Unlock()
 	for _, t := range topic {
+		if t == "" {
+			mb.suball(sub)
+			break
+		}
 		mb.sub(t, sub)
 	}
 	return true
@@ -144,6 +159,10 @@ func (sub *Subr) Sub(topic ...Topic) bool {
 // error to unsubscribe to a topic which was not already subscribed
 // to.  Note that a message channel can exist without any
 // subscriptions.  Reads from it will then always block.
+//
+// As a special case, an empty Topic ("") is interpreted to mean
+// that *all* topics should be unsubscribed from.
+
 func (sub *Subr) Unsub(topic ...Topic) bool {
 	mb := sub.mbus
 	if mb.closed {
@@ -152,6 +171,10 @@ func (sub *Subr) Unsub(topic ...Topic) bool {
 	mb.subsLock.Lock()
 	defer mb.subsLock.Unlock()
 	for _, t := range topic {
+		if t == "" {
+			mb.unsuball(sub)
+			break
+		}
 		mb.unsub(t, sub)
 	}
 	return true
@@ -169,6 +192,16 @@ func (mb *Mbus) sub(topic Topic, sub *Subr) {
 	mb.wants[topic][sub] = true
 }
 
+// add a subscriber to all existing topics
+//
+// only used by internal callers who have
+// locked mb.subsLock
+func (mb *Mbus) suball(sub *Subr) {
+	for _, x := range mb.wants {
+		x[sub] = true
+	}
+}
+
 // remove a subscriber from a topic
 //
 // only used by internal callers who have
@@ -181,6 +214,19 @@ func (mb *Mbus) unsub(topic Topic, sub *Subr) {
 	delete(mb.wants[topic], sub)
 	if len(mb.wants[topic]) == 0 {
 		delete(mb.wants, topic)
+	}
+}
+
+// remove a subscriber from all topics
+//
+// only used by internal callers who have
+// locked mb.subsLock
+func (mb *Mbus) unsuball(sub *Subr) {
+	for t, x := range mb.wants {
+		delete(x, sub)
+		if len(x) == 0 {
+			delete(mb.wants, t)
+		}
 	}
 }
 
