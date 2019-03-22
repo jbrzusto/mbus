@@ -49,10 +49,10 @@ import (
 
 func main() {
 	mb := mbus.NewMbus()
-	optimist := mb.NewSubr("good news")
-	pessimist := mb.NewSubr("bad news")
-	realist := mb.NewSubr("good news", "bad news")
-	opponent := mb.NewSubr("bad news")
+	optimist := mb.Sub("good news")
+	pessimist := mb.Sub("bad news")
+	realist := mb.Sub("*")
+	opponent := mb.Sub("bad news")
 	// come to think of it:
 	opponent.Sub("fake news")
 	go consume("I", realist)
@@ -62,11 +62,12 @@ func main() {
 
 	mb.Pub(mbus.Msg{"bad news", "I fell out of a plane"})
 	mb.Pub(mbus.Msg{"good news", "I was wearing a parachute"})
+	mb.Pub(mbus.Msg{"fake news", "The plane is not actually in the air"})
 
 	time.Sleep(time.Millisecond * 50)
 
-	// wasn't getting much of this:
-	realist.Unsub("good news")
+	// I need a break from this:
+	realist.Unsub("*")
 	mb.Pub(mbus.Msg{"bad news", "The parachute did not deploy"})
 	mb.Pub(mbus.Msg{"good news", "I landed on a trampoline"})
 	mb.Pub(mbus.Msg{"fake news", "Humans can fly"})

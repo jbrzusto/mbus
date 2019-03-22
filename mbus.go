@@ -110,7 +110,7 @@ func (mb *Mbus) Close() {
 // has subscribed to "*", then all messages are received
 // until the client unsubscribes from "*"; i.e. individual
 // Sub / Unsub calls have no effect.
-func (mb *Mbus) NewSubr(topic ...Topic) (sub *Subr) {
+func (mb *Mbus) Sub(topic ...Topic) (sub *Subr) {
 	if mb.closed {
 		return nil
 	}

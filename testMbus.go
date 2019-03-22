@@ -50,7 +50,7 @@ func Test() {
 	// generate 30 random consumers; consumer i subscribes to
 	// messages whose topic is an integer multiple of i <= 100
 	for i:= 1; i <= 30; i++ {
-		c := mb.NewSubr(Topic(strconv.Itoa(i)), Topic(strconv.Itoa(2*i)))
+		c := mb.Sub(Topic(strconv.Itoa(i)), Topic(strconv.Itoa(2*i)))
 		for j:= i*3; j <= 100; j += i {
 			c.Sub(Topic(strconv.Itoa(j)))
 		}
